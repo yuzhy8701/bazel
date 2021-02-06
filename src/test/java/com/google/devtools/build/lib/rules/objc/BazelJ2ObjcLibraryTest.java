@@ -321,22 +321,17 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     J2ObjcMappingFileProvider provider = target.getProvider(J2ObjcMappingFileProvider.class);
 
     Artifact classMappingFile =
-        getGenfilesArtifact("../external/bla/foo/test.clsmap.properties", test, getJ2ObjcAspect());
+        getGenfilesArtifact("test.clsmap.properties", test, getJ2ObjcAspect());
     assertThat(provider.getClassMappingFiles().toList()).containsExactly(classMappingFile);
 
     ObjcProvider objcProvider = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
 
-    Artifact headerFile =
-        getGenfilesArtifact("../external/bla/foo/test.j2objc.pb.h", test, getJ2ObjcAspect());
-    Artifact sourceFile =
-        getGenfilesArtifact("../external/bla/foo/test.j2objc.pb.m", test, getJ2ObjcAspect());
+    Artifact headerFile = getGenfilesArtifact("test.j2objc.pb.h", test, getJ2ObjcAspect());
+    Artifact sourceFile = getGenfilesArtifact("test.j2objc.pb.m", test, getJ2ObjcAspect());
     assertThat(objcProvider.header().toList()).contains(headerFile);
     assertThat(objcProvider.get(ObjcProvider.SOURCE).toList()).contains(sourceFile);
     assertThat(objcProvider.include())
-        .contains(
-            getConfiguration(target)
-                .getGenfilesFragment(RepositoryName.create("@bla"))
-                .getRelative("external/bla"));
+        .contains(getConfiguration(target).getGenfilesFragment(RepositoryName.create("@bla")));
   }
 
   @Test
@@ -674,20 +669,18 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     CommandAction linkAction = linkAction("//x:test");
     ConfiguredTarget target = getConfiguredTargetInAppleBinaryTransition("//x:test");
-    String binDir =
+    String mainBinDir =
         getConfiguration(target).getBinDirectory(RepositoryName.MAIN).getExecPathString();
+    String toolsBinDir =
+        getConfiguration(target)
+            .getBinDirectory(RepositoryName.create(TestConstants.TOOLS_REPOSITORY))
+            .getExecPathString();
     assertThat(paramFileArgsForAction(linkAction))
         .containsAtLeast(
-            binDir + "/java/c/y/libylib_j2objc.a",
+            mainBinDir + "/java/c/y/libylib_j2objc.a",
             // All jre libraries mus appear after java libraries in the link order.
-            binDir
-                + "/"
-                + TestConstants.TOOLS_REPOSITORY_PATH_PREFIX
-                + "third_party/java/j2objc/libjre_io_lib.a",
-            binDir
-                + "/"
-                + TestConstants.TOOLS_REPOSITORY_PATH_PREFIX
-                + "third_party/java/j2objc/libjre_core_lib.a")
+            toolsBinDir + "/third_party/java/j2objc/libjre_io_lib.a",
+            toolsBinDir + "/third_party/java/j2objc/libjre_core_lib.a")
         .inOrder();
   }
 
@@ -1076,8 +1069,11 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     Artifact dependencyMappingFile = getBinArtifact("test.dependency_mapping.j2objc", javaTarget);
     Artifact archiveSourceMappingFile =
         getBinArtifact("test.archive_source_mapping.j2objc", javaTarget);
-    String execPath =
-        getConfiguration(javaTarget).getBinDirectory(RepositoryName.MAIN).getExecPath() + "/";
+    String toolsBinDir =
+        getConfiguration(javaTarget)
+                .getBinDirectory(RepositoryName.create(TestConstants.TOOLS_REPOSITORY))
+                .getExecPath()
+            + "/";
 
     assertContainsSublist(
         ImmutableList.copyOf(paramFileArgsForAction(action)),
@@ -1087,8 +1083,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             .add("--output_archive")
             .add(prunedArchive.getExecPathString())
             .add("--dummy_archive")
-            .add(
-                execPath + TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "tools/objc/libdummy_lib.a")
+            .add(toolsBinDir + "tools/objc/libdummy_lib.a")
             .add("--xcrunwrapper")
             .add(MOCK_XCRUNWRAPPER_EXECUTABLE_PATH)
             .add("--dependency_mapping_files")

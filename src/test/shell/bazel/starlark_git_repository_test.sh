@@ -441,12 +441,13 @@ EOF
   # Use batch to force server restarts.
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
-  assert_contains "GIT 1" bazel-genfiles/external/g/go
+  g_genfiles=$(bazel info bazel-genfiles | sed 's|bazel-out|bazel-out/g|')
+  assert_contains "GIT 1" $g_genfiles/go
 
   # Without changing anything, restart the server, which should not cause the checkout to be re-cloned.
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_not_log "Cloning"
-  assert_contains "GIT 1" bazel-genfiles/external/g/go
+  assert_contains "GIT 1" $g_genfiles/go
 
   # Change the commit id, which should cause the checkout to be re-cloned.
   rm WORKSPACE
@@ -457,7 +458,7 @@ EOF
 
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
-  assert_contains "GIT 2" bazel-genfiles/external/g/go
+  assert_contains "GIT 2" $g_genfiles/go
 
   # Change the WORKSPACE but not the commit id, which should not cause the checkout to be re-cloned.
   rm WORKSPACE
@@ -470,7 +471,7 @@ EOF
 
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_not_log "Cloning"
-  assert_contains "GIT 2" bazel-genfiles/external/g/go
+  assert_contains "GIT 2" $g_genfiles/go
 }
 
 function test_git_repository_not_refetched_on_server_restart_strip_prefix() {
@@ -482,7 +483,8 @@ git_repository(name='g', remote='$repo_dir', commit='17ea13b242e4cbcc27a6ef74593
 EOF
   bazel --batch build @g//gdir:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
-  assert_contains "GIT 2" bazel-genfiles/external/g/gdir/go
+  g_genfiles=$(bazel info bazel-genfiles | sed 's|bazel-out|bazel-out/g|')
+  assert_contains "GIT 2" $g_genfiles/gdir/go
 
   rm WORKSPACE
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
@@ -491,7 +493,7 @@ git_repository(name='g', remote='$repo_dir', commit='17ea13b242e4cbcc27a6ef74593
 EOF
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
-  assert_contains "GIT 2" bazel-genfiles/external/g/go
+  assert_contains "GIT 2" $g_genfiles/go
 }
 
 
@@ -506,7 +508,8 @@ EOF
 
   bazel build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
-  assert_contains "GIT 1" bazel-genfiles/external/g/go
+  g_genfiles=$(bazel info bazel-genfiles | sed 's|bazel-out|bazel-out/g|')
+  assert_contains "GIT 1" $g_genfiles/go
 
   # Change the commit id, which should cause the checkout to be re-cloned.
   rm WORKSPACE
@@ -517,7 +520,7 @@ EOF
 
   bazel build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
-  assert_contains "GIT 2" bazel-genfiles/external/g/go
+  assert_contains "GIT 2" $g_genfiles/go
 }
 
 function test_git_repository_and_nofetch() {
@@ -532,7 +535,8 @@ EOF
   bazel build --nofetch @g//:g >& $TEST_log && fail "Build succeeded"
   expect_log "fetching repositories is disabled"
   bazel build @g//:g >& $TEST_log || fail "Build failed"
-  assert_contains "GIT 1" bazel-genfiles/external/g/go
+  g_genfiles=$(bazel info bazel-genfiles | sed 's|bazel-out|bazel-out/g|')
+  assert_contains "GIT 1" $g_genfiles/go
 
   rm WORKSPACE
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
@@ -542,9 +546,9 @@ EOF
 
   bazel build --nofetch @g//:g >& $TEST_log || fail "Build failed"
   expect_log "External repository 'g' is not up-to-date"
-  assert_contains "GIT 1" bazel-genfiles/external/g/go
+  assert_contains "GIT 1" $g_genfiles/go
   bazel build  @g//:g >& $TEST_log || fail "Build failed"
-  assert_contains "GIT 2" bazel-genfiles/external/g/go
+  assert_contains "GIT 2" $g_genfiles/go
 
   rm WORKSPACE
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
@@ -555,7 +559,7 @@ EOF
   bazel build --nofetch @g//:g >& $TEST_log || fail "Build failed"
   expect_log "External repository 'g' is not up-to-date"
   bazel build  @g//:g >& $TEST_log || fail "Build failed"
-  assert_contains "GIT 2" bazel-genfiles/external/g/go
+  assert_contains "GIT 2" $g_genfiles/go
 
 }
 

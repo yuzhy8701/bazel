@@ -269,10 +269,7 @@ public final class SkydocTest extends BuildViewTestCase {
 
   @Test
   public void testRulesAcrossRepository() throws Exception {
-    scratch.file(
-        "/execroot/io_bazel/external/dep_repo/lib/rule_impl.bzl",
-        "def rule_impl(ctx):",
-        "  return []");
+    scratch.file("/execroot/dep_repo/lib/rule_impl.bzl", "def rule_impl(ctx):", "  return []");
 
     scratch.file("/execroot/io_bazel/deps/foo/docstring.bzl", "doc_string = 'Dep rule'");
 
@@ -319,8 +316,11 @@ public final class SkydocTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testRulesAcrossRepositorySiblingRepositoryLayout() throws Exception {
-    scratch.file("/execroot/dep_repo/lib/rule_impl.bzl", "def rule_impl(ctx):", "  return []");
+  public void testRulesAcrossRepositoryLegacyLayout() throws Exception {
+    scratch.file(
+        "/execroot/io_bazel/external/dep_repo/lib/rule_impl.bzl",
+        "def rule_impl(ctx):",
+        "  return []");
 
     scratch.file("/execroot/io_bazel/deps/foo/docstring.bzl", "doc_string = 'Dep rule'");
 
@@ -353,7 +353,7 @@ public final class SkydocTest extends BuildViewTestCase {
 
     skydocMain.eval(
         StarlarkSemantics.builder()
-            .setBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT, true)
+            .setBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT, false)
             .build(),
         Label.parseAbsoluteUnchecked("//test:main.bzl"),
         ruleInfoMapBuilder,

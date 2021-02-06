@@ -466,7 +466,7 @@ public class LabelTest {
     assertThat(label.getWorkspaceRootForStarlarkOnly(StarlarkSemantics.DEFAULT)).isEmpty();
     label = Label.parseAbsolute("@repo//bar/baz", ImmutableMap.of());
     assertThat(label.getWorkspaceRootForStarlarkOnly(StarlarkSemantics.DEFAULT))
-        .isEqualTo("external/repo");
+        .isEqualTo("../repo");
   }
 
   @Test

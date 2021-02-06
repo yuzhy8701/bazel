@@ -768,10 +768,10 @@ public class CcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testIncludeRelativeHeadersAboveExecRoot() throws Exception {
-    checkError(
+    checkWarning(
         "test",
         "bad_relative_include",
-        "Path references a path above the execution root.",
+        "not below the relative path of its package",
         "cc_library(name='bad_relative_include', srcs=[], includes=['../..'])");
   }
 

@@ -195,7 +195,7 @@ public abstract class AndroidSdkRepositoryTest extends AndroidBuildViewTestCase 
             artifactsToStrings(
                 android25ArmFilegroup.getProvider(FilesToRunProvider.class).getFilesToRun()))
         .containsExactly(
-            "src external/androidsdk/system-images/android-25/default/armeabi-v7a/system.img");
+            "src ../androidsdk/system-images/android-25/default/armeabi-v7a/system.img");
 
     ConfiguredTarget android24X86Filegroup =
         getConfiguredTarget("@androidsdk//:emulator_images_google_24_x86");
@@ -203,8 +203,7 @@ public abstract class AndroidSdkRepositoryTest extends AndroidBuildViewTestCase 
     assertThat(
             artifactsToStrings(
                 android24X86Filegroup.getProvider(FilesToRunProvider.class).getFilesToRun()))
-        .containsExactly(
-            "src external/androidsdk/system-images/android-24/google_apis/x86/system.img");
+        .containsExactly("src ../androidsdk/system-images/android-24/google_apis/x86/system.img");
   }
 
   // Regression test for https://github.com/bazelbuild/bazel/issues/3672.
@@ -264,7 +263,7 @@ public abstract class AndroidSdkRepositoryTest extends AndroidBuildViewTestCase 
     ConfiguredTarget androidSdk = getConfiguredTarget("@androidsdk//:sdk");
     assertThat(androidSdk).isNotNull();
     assertThat(androidSdk.get(AndroidSdkProvider.PROVIDER).getAndroidJar().getExecPathString())
-        .isEqualTo("external/androidsdk/platforms/android-25/android.jar");
+        .isEqualTo("../androidsdk/platforms/android-25/android.jar");
   }
 
   @Test
@@ -288,8 +287,7 @@ public abstract class AndroidSdkRepositoryTest extends AndroidBuildViewTestCase 
       ConfiguredTarget androidSdk = getConfiguredTarget("@androidsdk//:sdk-" + apiLevel);
       assertThat(androidSdk).isNotNull();
       assertThat(androidSdk.get(AndroidSdkProvider.PROVIDER).getAndroidJar().getExecPathString())
-          .isEqualTo(
-              String.format("external/androidsdk/platforms/android-%d/android.jar", apiLevel));
+          .isEqualTo(String.format("../androidsdk/platforms/android-%d/android.jar", apiLevel));
     }
   }
 

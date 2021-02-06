@@ -156,7 +156,7 @@ public class PatchApiBlackBoxTest extends AbstractBlackBoxTest {
     } else {
       assertFooIsPatched(bazel);
       // foo.sh.orig should be generated due to "-b" argument.
-      Path fooOrig = context().resolveExecRootPath(bazel, "external/test/foo.sh.orig");
+      Path fooOrig = context().resolveExecRootPath(bazel, "../test/foo.sh.orig");
       assertThat(fooOrig.toFile().exists()).isTrue();
     }
   }
@@ -199,7 +199,7 @@ public class PatchApiBlackBoxTest extends AbstractBlackBoxTest {
   }
 
   private void assertFooIsPatched(BuilderRunner bazel) throws Exception {
-    Path foo = context().resolveExecRootPath(bazel, "external/test/foo.sh");
+    Path foo = context().resolveExecRootPath(bazel, "../test/foo.sh");
     assertThat(foo.toFile().exists()).isTrue();
     ImmutableList<String> patchedFoo =
         ImmutableList.of(

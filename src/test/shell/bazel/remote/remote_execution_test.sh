@@ -2363,6 +2363,7 @@ EOF
   cat $(rlocation io_bazel/src/test/shell/bazel/testdata/jdk_http_archives) >> WORKSPACE
 
   bazel coverage \
+    --verbose_failures -s \
     --test_output=all \
     --experimental_fetch_all_coverage_outputs \
     --experimental_split_coverage_postprocessing \

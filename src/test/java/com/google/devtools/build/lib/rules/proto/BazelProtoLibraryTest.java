@@ -356,8 +356,8 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"), "local_repository(name = 'foo', path = '/foo')");
-    if (siblingRepoLayout) {
-      setBuildLanguageOptions("--experimental_sibling_repository_layout");
+    if (!siblingRepoLayout) {
+      setBuildLanguageOptions("--noexperimental_sibling_repository_layout");
     }
     invalidatePackages();
 
@@ -959,9 +959,10 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "proto_library(name='a', srcs=['a.proto'], deps=['@foo//x/y:q'])");
 
     Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//a:a"));
-    String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
+    String genfiles =
+        getTargetConfiguration().getGenfilesFragment(RepositoryName.create("@foo")).toString();
     assertThat(commandLine)
-        .contains("-Iy/z/q.proto=" + genfiles + "/external/foo/x/y/_virtual_imports/q/y/z/q.proto");
+        .contains("-Iy/z/q.proto=" + genfiles + "/x/y/_virtual_imports/q/y/z/q.proto");
   }
 
   private Artifact getDescriptorOutput(String label) throws Exception {
@@ -1078,14 +1079,13 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
     {
       Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//x:a"));
-      assertThat(commandLine)
-          .containsAtLeast("-Ix/a.proto=x/a.proto", "-Ia.proto=external/foo/a.proto");
+      assertThat(commandLine).containsAtLeast("-Ix/a.proto=x/a.proto", "-Ia.proto=../foo/a.proto");
     }
 
     {
       Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//x:c"));
       assertThat(commandLine)
-          .containsAtLeast("-Ix/c.proto=x/c.proto", "-Ia/b/c.proto=external/foo/a/b/c.proto");
+          .containsAtLeast("-Ix/c.proto=x/c.proto", "-Ia/b/c.proto=../foo/a/b/c.proto");
     }
   }
 

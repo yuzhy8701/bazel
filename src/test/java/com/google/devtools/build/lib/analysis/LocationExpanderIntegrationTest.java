@@ -151,13 +151,11 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
 
     LocationExpander expander = makeExpander("//expansion:lib");
     assertThat(expander.expand("foo $(execpath @r//p:foo) bar"))
-        .matches("foo .*-out/.*/external/r/p/foo\\.txt bar");
+        .matches("foo .*-out/r/.*/p/foo\\.txt bar");
     assertThat(expander.expand("foo $(execpaths @r//p:foo) bar"))
-        .matches("foo .*-out/.*/external/r/p/foo\\.txt bar");
-    assertThat(expander.expand("foo $(rootpath @r//p:foo) bar"))
-        .matches("foo external/r/p/foo.txt bar");
-    assertThat(expander.expand("foo $(rootpaths @r//p:foo) bar"))
-        .matches("foo external/r/p/foo.txt bar");
+        .matches("foo .*-out/r/.*/p/foo\\.txt bar");
+    assertThat(expander.expand("foo $(rootpath @r//p:foo) bar")).matches("foo ../r/p/foo.txt bar");
+    assertThat(expander.expand("foo $(rootpaths @r//p:foo) bar")).matches("foo ../r/p/foo.txt bar");
   }
 
   @Test
@@ -178,9 +176,9 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
     useConfiguration("--nolegacy_external_runfiles");
     LocationExpander expander = makeExpander("//expansion:lib");
     assertThat(expander.expand("foo $(execpath @r//p:foo) bar"))
-        .matches("foo .*-out/.*/external/r/p/foo\\.txt bar");
+        .matches("foo .*-out/r/.*/p/foo\\.txt bar");
     assertThat(expander.expand("foo $(execpaths @r//p:foo) bar"))
-        .matches("foo .*-out/.*/external/r/p/foo\\.txt bar");
+        .matches("foo .*-out/r/.*/p/foo\\.txt bar");
     assertThat(expander.expand("foo $(rootpath @r//p:foo) bar")).matches("foo ../r/p/foo.txt bar");
     assertThat(expander.expand("foo $(rootpaths @r//p:foo) bar")).matches("foo ../r/p/foo.txt bar");
   }

@@ -374,8 +374,8 @@ genrule(
 EOF
 
   bazel build @r//package:hi >$TEST_log 2>&1 || fail "Should build"
-  expect_log "bazel-.*bin/external/r/package/a/b"
-  expect_log "bazel-.*bin/external/r/package/c/d"
+  expect_log "bazel-out/r/.*/bin/package/a/b"
+  expect_log "bazel-out/r/.*/bin/package/c/d"
 }
 
 function test_genrule_toolchain_dependency {

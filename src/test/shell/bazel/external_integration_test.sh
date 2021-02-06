@@ -150,7 +150,7 @@ fi
   kill_nc
   expect_log $what_does_the_fox_say
 
-  base_external_path=bazel-out/../external/endangered/fox
+  base_external_path=bazel-out/../../endangered/fox
   assert_files_same ${base_external_path}/male ${base_external_path}/male_relative
   assert_files_same ${base_external_path}/male ${base_external_path}/male_absolute
   case "${PLATFORM}" in
@@ -669,7 +669,8 @@ EOF
   touch BUILD
 
   bazel build @x//:catter &> $TEST_log || fail "Build failed"
-  assert_contains "abc" bazel-genfiles/external/x/catter.out
+  x_genfiles=$(bazel info bazel-genfiles | sed 's|bazel-out|bazel-out/x|')
+  assert_contains "abc" $x_genfiles/catter.out
 }
 
 function test_prefix_stripping_zip() {
@@ -700,7 +701,8 @@ EOF
   touch BUILD
 
   bazel build @x//:catter &> $TEST_log || fail "Build failed"
-  assert_contains "abc" bazel-genfiles/external/x/catter.out
+  x_genfiles=$(bazel info bazel-genfiles | sed 's|bazel-out|bazel-out/x|')
+  assert_contains "abc" $x_genfiles/catter.out
 }
 
 function test_prefix_stripping_existing_repo() {
@@ -730,7 +732,8 @@ http_archive(
 EOF
 
   bazel build @x//:catter &> $TEST_log || fail "Build failed"
-  assert_contains "abc" bazel-genfiles/external/x/catter.out
+  x_genfiles=$(bazel info bazel-genfiles | sed 's|bazel-out|bazel-out/x|')
+  assert_contains "abc" $x_genfiles/catter.out
 }
 
 function test_moving_build_file() {
@@ -759,13 +762,14 @@ genrule(
 EOF
 
   bazel build @x//:catter &> $TEST_log || fail "Build 1 failed"
-  assert_contains "abc" bazel-genfiles/external/x/catter.out
+  x_genfiles=$(bazel info bazel-genfiles | sed 's|bazel-out|bazel-out/x|')
+  assert_contains "abc" $x_genfiles/catter.out
   mv x.BUILD x.BUILD.new || fail "Moving x.BUILD failed"
   sed 's/x.BUILD/x.BUILD.new/g' WORKSPACE > WORKSPACE.tmp || \
     fail "Editing WORKSPACE failed"
   mv WORKSPACE.tmp WORKSPACE
   bazel build @x//:catter &> $TEST_log || fail "Build 2 failed"
-  assert_contains "abc" bazel-genfiles/external/x/catter.out
+  assert_contains "abc" $x_genfiles/catter.out
 }
 
 function test_changing_build_file() {
@@ -804,12 +808,13 @@ genrule(
 EOF
 
   bazel build @x//:catter || fail "Build 1 failed"
-  assert_contains "abc" bazel-genfiles/external/x/catter.out
+  x_genfiles=$(bazel info bazel-genfiles | sed 's|bazel-out|bazel-out/x|')
+  assert_contains "abc" $x_genfiles/catter.out
   sed 's/x.BUILD/x.BUILD.new/g' WORKSPACE > WORKSPACE.tmp || \
     fail "Editing WORKSPACE failed"
   mv WORKSPACE.tmp WORKSPACE
   bazel build @x//:catter &> $TEST_log || fail "Build 2 failed"
-  assert_contains "def" bazel-genfiles/external/x/catter.out
+  assert_contains "def" $x_genfiles/catter.out
 }
 
 function test_android_sdk_basic_load() {
@@ -2548,14 +2553,14 @@ EOF
   bazel query //... >& $TEST_log || fail "Expected build/run to succeed"
   expect_log "//not-external:b"
   expect_not_log "//external:a1"
-  expect_not_log "//external/nested:a2"
+  expect_log "//external/nested:a2"
 
-  bazel query --experimental_sibling_repository_layout //... >& $TEST_log \ ||
+  bazel query --noexperimental_sibling_repository_layout //... >& $TEST_log \ ||
     fail "Expected build/run to succeed"
   expect_log "//not-external:b"
   # Targets in //external aren't supported yet.
   expect_not_log "//external:a1"
-  expect_log "//external/nested:a2"
+  expect_not_log "//external/nested:a2"
 }
 
 run_suite "external tests"

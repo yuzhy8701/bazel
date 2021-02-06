@@ -162,7 +162,7 @@ fi
   shutdown_server
   expect_log "$what_does_the_fox_say"
 
-  base_external_path=bazel-out/../external/endangered/fox
+  base_external_path=bazel-out/../../endangered/fox
   assert_files_same ${base_external_path}/male ${base_external_path}/male_relative
   assert_files_same ${base_external_path}/male ${base_external_path}/male_absolute
 }

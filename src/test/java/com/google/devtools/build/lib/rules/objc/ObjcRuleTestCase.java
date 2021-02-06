@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
@@ -133,70 +134,85 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
       ConfigurationDistinguisher configurationDistinguisher,
       DottedVersion minOsVersion,
       CompilationMode compilationMode) {
-    return configurationDir(arch, configurationDistinguisher, minOsVersion, compilationMode)
+    return configurationDir(
+            arch, configurationDistinguisher, minOsVersion, compilationMode, RepositoryName.MAIN)
         + "bin/";
   }
 
-   /**
+  /**
    * Returns the genfiles dir for artifacts built for a given Apple architecture and minimum OS
    * version (as set by a configuration transition) and configuration distinguisher but the global
    * default for {@code --cpu}.
    *
    * @param arch the given Apple architecture which artifacts are built under this configuration.
    *     Note this will likely be different than the value of {@code --cpu}.
-   * @param configurationDistinguisher the configuration distinguisher used to describe the
-   *     a configuration transition
+   * @param configurationDistinguisher the configuration distinguisher used to describe the a
+   *     configuration transition
    * @param minOsVersion the minimum os version for which to compile artifacts in the
-   *     configuration
+   * @param repositoryName the repository name of the target artifact
    */
   protected String configurationGenfiles(
-      String arch, ConfigurationDistinguisher configurationDistinguisher,
-      DottedVersion minOsVersion) {
+      String arch,
+      ConfigurationDistinguisher configurationDistinguisher,
+      DottedVersion minOsVersion,
+      RepositoryName repositoryName) {
     return configurationDir(
-            arch, configurationDistinguisher, minOsVersion, CompilationMode.FASTBUILD)
-        + getTargetConfiguration()
-            .getGenfilesDirectory(RepositoryName.MAIN)
-            .getExecPath()
-            .getBaseName();
+            arch,
+            configurationDistinguisher,
+            minOsVersion,
+            CompilationMode.FASTBUILD,
+            repositoryName)
+        + getTargetConfiguration().getGenfilesDirectory(repositoryName).getExecPath().getBaseName();
   }
 
   private static String toolExecutable(String toolSrcPath) {
-    return String.format("%s-out/host/bin/%s", TestConstants.PRODUCT_NAME,
-        TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + toolSrcPath);
+    try {
+      return PathFragment.create(String.format("%s-out", TestConstants.PRODUCT_NAME))
+          .getRelative(RepositoryName.create(TestConstants.TOOLS_REPOSITORY).strippedName())
+          .getRelative("host/bin")
+          .getRelative(toolSrcPath)
+          .getPathString();
+    } catch (LabelSyntaxException e) {
+      // Should never happen.
+      throw new RuntimeException(e);
+    }
   }
 
   private String configurationDir(
       String arch,
       ConfigurationDistinguisher configurationDistinguisher,
       DottedVersion minOsVersion,
-      CompilationMode compilationMode) {
+      CompilationMode compilationMode,
+      RepositoryName repositoryName) {
     String minOsSegment = minOsVersion == null ? "" : "-min" + minOsVersion;
     String modeSegment = compilationModeFlag(compilationMode);
+    String repoNameSegment = repositoryName.isMain() ? "" : repositoryName.strippedName() + "/";
     switch (configurationDistinguisher) {
       case UNKNOWN:
-        return String.format("%s-out/ios_%s-%s/", TestConstants.PRODUCT_NAME, arch, modeSegment);
+        return String.format(
+            "%s-out/%sios_%s-%s/", TestConstants.PRODUCT_NAME, repoNameSegment, arch, modeSegment);
       case APPLE_CROSSTOOL:
-        return String.format("%1$s-out/apl-ios_%2$s%3$s-%4$s/",
-            TestConstants.PRODUCT_NAME,
-            arch,
-            minOsSegment,
-            modeSegment);
+        return String.format(
+            "%1$s-out/%5$sapl-ios_%2$s%3$s-%4$s/",
+            TestConstants.PRODUCT_NAME, arch, minOsSegment, modeSegment, repoNameSegment);
       case APPLEBIN_IOS:
         return String.format(
-            "%1$s-out/ios-%2$s%4$s-%3$s-ios_%2$s-%5$s/",
+            "%1$s-out/%6$sios-%2$s%4$s-%3$s-ios_%2$s-%5$s/",
             TestConstants.PRODUCT_NAME,
             arch,
             configurationDistinguisher.toString().toLowerCase(Locale.US),
             minOsSegment,
-            modeSegment);
+            modeSegment,
+            repoNameSegment);
       case APPLEBIN_WATCHOS:
         return String.format(
-            "%1$s-out/watchos-%2$s%4$s-%3$s-watchos_%2$s-%5$s/",
+            "%1$s-out/%6$swatchos-%2$s%4$s-%3$s-watchos_%2$s-%5$s/",
             TestConstants.PRODUCT_NAME,
             arch,
             configurationDistinguisher.toString().toLowerCase(Locale.US),
             minOsSegment,
-            modeSegment);
+            modeSegment,
+            repoNameSegment);
       default:
         throw new AssertionError();
     }

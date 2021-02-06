@@ -21,6 +21,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -93,11 +94,16 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
         .containsExactly(TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "objcproto/include/header.h");
 
     Artifact header = objcProtoProvider.getProtobufHeaders().getSingleton();
-    PathFragment includePath = header.getExecPath().getParentDirectory();
+    PathFragment includePath = header.getRepositoryRelativePath().getParentDirectory();
     PathFragment genIncludePath =
         PathFragment.create(
-            configurationGenfiles("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS, null)
-                + "/" + includePath);
+            configurationGenfiles(
+                    "x86_64",
+                    ConfigurationDistinguisher.APPLEBIN_IOS,
+                    null,
+                    RepositoryName.create(TestConstants.TOOLS_REPOSITORY))
+                + "/"
+                + includePath);
 
     assertThat(objcProtoProvider.getProtobufHeaderSearchPaths().toList())
         .containsExactly(includePath, genIncludePath);
@@ -183,7 +189,8 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
 
     assertThat(Artifact.asExecPaths(objcProtoProvider.getPortableProtoFilters()))
         .containsExactly(
-            configurationGenfiles("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS, null)
+            configurationGenfiles(
+                    "x86_64", ConfigurationDistinguisher.APPLEBIN_IOS, null, RepositoryName.MAIN)
                 + "/x/_proto_filters/objc_proto/generated_filter_file.pbascii");
   }
 
@@ -227,7 +234,8 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
     assertThat(Artifact.asExecPaths(objcProtoProvider.getPortableProtoFilters()))
         .containsAtLeast(
             "x/filter.pbascii",
-            configurationGenfiles("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS, null)
+            configurationGenfiles(
+                    "x86_64", ConfigurationDistinguisher.APPLEBIN_IOS, null, RepositoryName.MAIN)
                 + "/x/_proto_filters/objc_proto_2/generated_filter_file.pbascii");
   }
 

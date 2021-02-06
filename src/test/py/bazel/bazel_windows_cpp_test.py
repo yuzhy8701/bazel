@@ -374,7 +374,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     # Test if A.dll is copied to the directory of main.exe
     main_bin = os.path.join(bazel_bin, 'main.exe')
     self.assertTrue(os.path.exists(main_bin))
-    self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'A_128f2c79c3.dll')))
+    self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'A_96fed308e7.dll')))
 
     # Run the binary to see if it runs successfully
     exit_code, stdout, stderr = self.RunProgram([main_bin])

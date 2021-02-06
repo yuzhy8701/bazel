@@ -142,8 +142,9 @@ genrule(
 )
 EOF
   bazel build @a//b/c:echo-d &> $TEST_log || fail "Build failed"
-  assert_contains "bazel-out/.*-fastbuild/.*/external/a/b/c" \
-    "bazel-genfiles/external/a/b/c/d"
+  a_genfiles=$(bazel info bazel-genfiles | sed 's|bazel-out|bazel-out/a|')
+  assert_contains "bazel-out/a/.*-fastbuild/.*/b/c" \
+    "$a_genfiles/b/c/d"
 }
 
 function test_package_group_in_external_repos() {
@@ -203,7 +204,8 @@ local_repository(
 EOF
 
   bazel build @remote2//:x &> $TEST_log || fail "Build failed"
-  assert_contains 1.0 bazel-genfiles/external/remote2/x.out
+  remote2_genfiles=$(bazel info bazel-genfiles | sed 's|bazel-out|bazel-out/remote2|')
+  assert_contains 1.0 $remote2_genfiles/x.out
 }
 
 function test_visibility_attributes_in_external_repos() {
@@ -280,15 +282,16 @@ config_setting(name = "four", values = { "define": "ARG=four" })
 EOF
 
   bazel build @r//a:gr || fail "build failed"
-  assert_contains "default" bazel-genfiles/external/r/a/gro
+  r_genfiles=$(bazel info bazel-genfiles | sed 's|bazel-out|bazel-out/r|')
+  assert_contains "default" $r_genfiles/a/gro
   bazel build @r//a:gr --define=ARG=one|| fail "build failed"
-  assert_contains "one" bazel-genfiles/external/r/a/gro
+  assert_contains "one" $r_genfiles/a/gro
   bazel build @r//a:gr --define=ARG=two || fail "build failed"
-  assert_contains "two" bazel-genfiles/external/r/a/gro
+  assert_contains "two" $r_genfiles/a/gro
   bazel build @r//a:gr --define=ARG=three || fail "build failed"
-  assert_contains "three" bazel-genfiles/external/r/a/gro
+  assert_contains "three" $r_genfiles/a/gro
   bazel build @r//a:gr --define=ARG=four || fail "build failed"
-  assert_contains "four" bazel-genfiles/external/r/a/gro
+  assert_contains "four" $r_genfiles/a/gro
 
 }
 
@@ -316,11 +319,12 @@ EOF
   touch ../r/three
   bazel "$batch_flag" build @r//:fg &> $TEST_log || \
     fail "Expected build to succeed"
-  assert_contains "external/r/three" bazel-genfiles/external/r/fg.out
+  r_genfiles=$(bazel info bazel-genfiles | sed 's|bazel-out|bazel-out/r|')
+  assert_contains "../r/three" $r_genfiles/fg.out
   touch ../r/subdir/four
   bazel "$batch_flag" build @r//:fg &> $TEST_log || \
     fail "Expected build to succeed"
-  assert_contains "external/r/subdir/four" bazel-genfiles/external/r/fg.out
+  assert_contains "../r/subdir/four" $r_genfiles/fg.out
 }
 
 function test_top_level_dir_changes_batch() {

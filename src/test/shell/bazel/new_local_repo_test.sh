@@ -100,8 +100,8 @@ eof
     bazel build //:G
     cat bazel-genfiles/g.txt >$TEST_log
   )
-  expect_log "external/B/a.txt"
-  expect_not_log "external/B/b.txt"
+  expect_log "../B/a.txt"
+  expect_not_log "../B/b.txt"
 
   # Build 2: add B/b.txt and see if the glob picks it up.
   # Shut down the server afterwards so the test cleanup can remove $pkg/A.
@@ -111,8 +111,8 @@ eof
     cat bazel-genfiles/g.txt >$TEST_log
     bazel shutdown >& /dev/null
   )
-  expect_log "external/B/a.txt"
-  expect_log "external/B/b.txt"
+  expect_log "../B/a.txt"
+  expect_log "../B/b.txt"
 }
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/9176

@@ -49,7 +49,8 @@ local_repository(
 EOF
 
   bazel build @x//:x || fail "build failed"
-  assert_contains "hi" bazel-genfiles/external/x/out
+  x_genfiles=$(bazel info bazel-genfiles | sed 's|bazel-out|bazel-out/x|')
+  assert_contains "hi" $x_genfiles/out
 
   cat > WORKSPACE <<EOF
 local_repository(
@@ -59,7 +60,7 @@ local_repository(
 EOF
 
   bazel build @x//:x || fail "build failed"
-  assert_contains "bye" bazel-genfiles/external/x/out
+  assert_contains "bye" $x_genfiles/out
 }
 
 
@@ -265,26 +266,27 @@ local_repository(
 EOF
   bazel build --override_repository="o=$PWD/override" @o//:gen &> $TEST_log \
     || fail "Expected build to succeed"
-  assert_contains "override" bazel-genfiles/external/o/gen.out
+  o_genfiles=$(bazel info bazel-genfiles | sed 's|bazel-out|bazel-out/o|')
+  assert_contains "override" $o_genfiles/gen.out
 
   bazel build @o//:gen &> $TEST_log \
     || fail "Expected build to succeed"
-  assert_contains "original" bazel-genfiles/external/o/gen.out
+  assert_contains "original" $o_genfiles/gen.out
 
   bazel build --override_repository="o=$PWD/override" @o//:gen &> $TEST_log \
     || fail "Expected build to succeed"
-  assert_contains "override" bazel-genfiles/external/o/gen.out
+  assert_contains "override" $o_genfiles/gen.out
 
   bazel build @o//:gen &> $TEST_log \
     || fail "Expected build to succeed"
-  assert_contains "original" bazel-genfiles/external/o/gen.out
+  assert_contains "original" $o_genfiles/gen.out
 
   # For multiple override options, the latest should win
   bazel build --override_repository=o=/ignoreme \
         --override_repository="o=$PWD/override" \
         @o//:gen &> $TEST_log \
     || fail "Expected build to succeed"
-  assert_contains "override" bazel-genfiles/external/o/gen.out
+  assert_contains "override" $o_genfiles/gen.out
 
 }
 
@@ -321,19 +323,20 @@ http_archive(
 EOF
   bazel build --override_repository="o=$PWD/override" @o//:gen &> $TEST_log \
     || fail "Expected build to succeed"
-  assert_contains "override" bazel-genfiles/external/o/gen.out
+  o_genfiles=$(bazel info bazel-genfiles | sed 's|bazel-out|bazel-out/o|')
+  assert_contains "override" $o_genfiles/gen.out
 
   bazel build @o//:gen &> $TEST_log \
     || fail "Expected build to succeed"
-  assert_contains "original" bazel-genfiles/external/o/gen.out
+  assert_contains "original" $o_genfiles/gen.out
 
   bazel build --override_repository="o=$PWD/override" @o//:gen &> $TEST_log \
     || fail "Expected build to succeed"
-  assert_contains "override" bazel-genfiles/external/o/gen.out
+  assert_contains "override" $o_genfiles/gen.out
 
   bazel build @o//:gen &> $TEST_log \
     || fail "Expected build to succeed"
-  assert_contains "original" bazel-genfiles/external/o/gen.out
+  assert_contains "original" $o_genfiles/gen.out
 }
 
 function test_workspace_addition_change() {
@@ -368,11 +371,12 @@ EOF
 
   bazel build --override_repository="new_repo=$PWD/repo_one" @new_repo//:gen \
       || fail "Expected build to succeed"
-  assert_contains "This is repo_one" bazel-genfiles/external/new_repo/gen.out
+  new_repo_genfiles=$(bazel info bazel-genfiles | sed 's|bazel-out|bazel-out/new_repo|')
+  assert_contains "This is repo_one" $new_repo_genfiles/gen.out
 
   bazel build --override_repository="new_repo=$PWD/repo_two" @new_repo//:gen \
       || fail "Expected build to succeed"
-  assert_contains "This is repo_two" bazel-genfiles/external/new_repo/gen.out
+  assert_contains "This is repo_two" $new_repo_genfiles/gen.out
 }
 
 function test_package_loading_with_remapping_changes() {
@@ -471,9 +475,10 @@ EOF
 
   cd main
   bazel build @a//:a || fail "Expected build to succeed"
-  cat bazel-genfiles/external/a/result.txt
-  grep "y_symbol" bazel-genfiles/external/a/result.txt \
-      || fail "expected 'y_symbol' in $(cat bazel-genfiles/external/a/result.txt)"
+  a_genfiles=$(bazel info bazel-genfiles | sed 's|bazel-out|bazel-out/a|')
+  cat $a_genfiles/result.txt
+  grep "y_symbol" $a_genfiles/result.txt \
+      || fail "expected 'y_symbol' in $(cat $a_genfiles/result.txt)"
 }
 
 function test_remapping_from_bzl_file_load() {
@@ -512,8 +517,9 @@ EOF
 
   cd main
   bazel build @a//:a || fail "Expected build to succeed"
-  grep "y_symbol" bazel-genfiles/external/a/result.txt \
-      || fail "expected 'y_symbol' in $(cat bazel-genfiles/external/a/result.txt)"
+  a_genfiles=$(bazel info bazel-genfiles | sed 's|bazel-out|bazel-out/a|')
+  grep "y_symbol" $a_genfiles/result.txt \
+      || fail "expected 'y_symbol' in $(cat $a_genfiles/result.txt)"
 }
 
 function test_repository_reassignment_label_in_build() {
@@ -584,8 +590,9 @@ EOF
 
   cd main
   bazel build @a//:a || fail "Expected build to succeed"
-  grep "external/b/x.txt" bazel-genfiles/external/a/result.txt \
-      || fail "expected external/b/x.txt in $(cat bazel-genfiles/external/a/result.txt)"
+  a_genfiles=$(bazel info bazel-genfiles | sed 's|bazel-out|bazel-out/a|')
+  grep "../b/x.txt" $a_genfiles/result.txt \
+      || fail "expected ../b/x.txt in $(cat $a_genfiles/result.txt)"
 }
 
 function test_repo_mapping_starlark_rules() {

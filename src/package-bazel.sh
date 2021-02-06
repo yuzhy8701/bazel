@@ -81,6 +81,11 @@ fi
   if [ -d "external/platforms" ]; then
     mv external/platforms/* .
     rmdir -p external/platforms
+  else
+    if [ -d "platforms" ]; then
+      mv platforms/* .
+      rmdir -p platforms
+    fi
   fi
   >> WORKSPACE
 )

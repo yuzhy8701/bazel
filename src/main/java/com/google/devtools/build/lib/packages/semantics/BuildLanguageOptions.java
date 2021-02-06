@@ -220,7 +220,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
 
   @Option(
       name = "experimental_sibling_repository_layout",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {
         OptionEffectTag.ACTION_COMMAND_LINES,
@@ -676,7 +676,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
   public static final String EXPERIMENTAL_PLATFORMS_API = "-experimental_platforms_api";
   public static final String EXPERIMENTAL_REPO_REMOTE_EXEC = "-experimental_repo_remote_exec";
   public static final String EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT =
-      "-experimental_sibling_repository_layout";
+      "+experimental_sibling_repository_layout";
   public static final String EXPERIMENTAL_STARLARK_CONFIG_TRANSITIONS =
       "+experimental_starlark_config_transitions";
   public static final String INCOMPATIBLE_ALLOW_TAGS_PROPAGATION =

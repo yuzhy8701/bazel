@@ -105,11 +105,10 @@ public class AndroidNdkRepositoryTest extends AndroidBuildViewTestCase {
             .getProvider(FilesToRunProvider.class)
             .getFilesToRun();
     assertThat(artifactsToStrings(x86ClangHighestApiLevelFilesToRun))
-        .contains(
-            "src external/androidndk/ndk/platforms/android-24/arch-x86/usr/lib/libandroid.so");
+        .contains("src ../androidndk/ndk/platforms/android-24/arch-x86/usr/lib/libandroid.so");
     assertThat(artifactsToStrings(x86ClangHighestApiLevelFilesToRun))
         .doesNotContain(
-            "src external/androidndk/ndk/platforms/android-22/arch-x86/usr/lib/libandroid.so");
+            "src ../androidndk/ndk/platforms/android-22/arch-x86/usr/lib/libandroid.so");
   }
 
   @Test

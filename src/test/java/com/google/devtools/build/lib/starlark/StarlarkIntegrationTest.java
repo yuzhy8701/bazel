@@ -148,6 +148,8 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     // Required since we have a new WORKSPACE file.
     invalidatePackages(true);
 
+    setBuildLanguageOptions("--noexperimental_sibling_repository_layout");
+
     ConfiguredTarget myTarget = getConfiguredTarget("@r//:t");
     String result = (String) getMyInfoFromTarget(myTarget).getValue("result");
     assertThat(result).isEqualTo("external/r");
@@ -174,8 +176,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
     // Required since we have a new WORKSPACE file.
     invalidatePackages(true);
-
-    setBuildLanguageOptions("--experimental_sibling_repository_layout");
 
     ConfiguredTarget myTarget = getConfiguredTarget("@r//:t");
     String result = (String) getMyInfoFromTarget(myTarget).getValue("result");

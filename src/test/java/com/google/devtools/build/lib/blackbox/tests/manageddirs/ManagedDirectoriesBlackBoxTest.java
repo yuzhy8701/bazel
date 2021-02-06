@@ -433,7 +433,7 @@ public class ManagedDirectoriesBlackBoxTest extends AbstractBlackBoxTest {
   }
 
   private String getDebugId(BuilderRunner bazel) throws Exception {
-    Path path = context().resolveExecRootPath(bazel, "external/generated_node_modules/debug_id");
+    Path path = context().resolveExecRootPath(bazel, "../generated_node_modules/debug_id");
     List<String> lines = PathUtils.readFile(path);
     assertThat(lines.size()).isEqualTo(1);
     return lines.get(0);

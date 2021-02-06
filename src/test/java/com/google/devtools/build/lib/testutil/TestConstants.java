@@ -99,8 +99,8 @@ public class TestConstants {
   /** The file path in which to create files so that they end up under {@link #TOOLS_REPOSITORY}. */
   public static final String TOOLS_REPOSITORY_SCRATCH = "bazel_tools_workspace/";
 
-  /** The output file path prefix for tool file dependencies. */
-  public static final String TOOLS_REPOSITORY_PATH_PREFIX = "external/bazel_tools/";
+  /** The source file path prefix for tool file dependencies. */
+  public static final String TOOLS_REPOSITORY_PATH_PREFIX = "../bazel_tools/";
 
   public static final String RULES_CC_REPOSITORY_SCRATCH = "rules_cc_workspace/";
   /** The directory in which rules_cc repo resides in execroot. */

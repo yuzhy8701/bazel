@@ -236,8 +236,8 @@ function test_bazel_compiles_with_localjdk() {
   bazel aquery '//java/main:JavaExample' --extra_toolchains=@local_jdk//:all &>"${TEST_log}" \
       || fail "Failed to use extra toolchains provided by @local_jdk repository."
 
-  expect_log "exec external/local_jdk/bin/java"
-  expect_not_log "exec external/remotejdk11_linux/bin/java"
+  expect_log "exec ../local_jdk/bin/java"
+  expect_not_log "exec ../remotejdk11_linux/bin/java"
 }
 
 run_suite "Tests detection of local JDK and that Bazel executes with a bundled JDK."

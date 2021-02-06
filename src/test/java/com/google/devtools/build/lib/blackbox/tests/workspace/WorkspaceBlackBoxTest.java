@@ -135,7 +135,7 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
 
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
     bazel.build("@relative//:debug_me");
-    Path outFile = context().resolveBinPath(bazel, "external/relative/out");
+    Path outFile = context().resolveExternalBinPath(bazel, "relative", "out");
     assertThat(outFile.toFile().exists()).isTrue();
     List<String> lines = PathUtils.readFile(outFile);
     assertThat(lines.size()).isEqualTo(1);
@@ -145,7 +145,7 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
     bazel.build("@absolute//:debug_me");
 
     bazel.build("@absolute2//:debug_me");
-    Path outFile2 = context().resolveBinPath(bazel, "external/absolute2/out");
+    Path outFile2 = context().resolveExternalBinPath(bazel, "absolute2", "out");
     assertThat(outFile2.toFile().exists()).isTrue();
     List<String> lines2 = PathUtils.readFile(outFile2);
     assertThat(lines2.size()).isEqualTo(1);
@@ -170,7 +170,7 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
     bazel.build("@x//:" + RepoWithRuleWritingTextGenerator.TARGET);
 
-    Path xPath = context().resolveBinPath(bazel, "external/x/out");
+    Path xPath = context().resolveExternalBinPath(bazel, "x", "out");
     WorkspaceTestUtils.assertLinesExactly(xPath, "hi");
 
     context()

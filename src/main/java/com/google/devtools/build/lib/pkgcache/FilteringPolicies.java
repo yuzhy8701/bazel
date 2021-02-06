@@ -99,7 +99,7 @@ public final class FilteringPolicies {
   private static class RulesOnly extends AbstractFilteringPolicy {
     @Override
     public boolean shouldRetain(Target target, boolean explicit) {
-      return target instanceof Rule;
+      return target instanceof Rule && !((Rule) target).getRuleClassObject().getWorkspaceOnly();
     }
   }
 

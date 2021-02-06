@@ -590,7 +590,8 @@ genrule(
 EOF
   bazel fetch //external:best-turtle || fail "Fetch failed"
   bazel build //external:best-turtle &> $TEST_log || fail "First build failed"
-  assert_contains "Leonardo" bazel-genfiles/external/mutant/tmnt
+  mutant_genfiles=$(bazel info bazel-genfiles | sed 's|bazel-out|bazel-out/mutant|')
+  assert_contains "Leonardo" $mutant_genfiles/tmnt
 
   cat > mutant.BUILD <<EOF
 genrule(
@@ -601,7 +602,7 @@ genrule(
 )
 EOF
   bazel build //external:best-turtle &> $TEST_log || fail "Second build failed"
-  assert_contains "Donatello" bazel-genfiles/external/mutant/tmnt
+  assert_contains "Donatello" $mutant_genfiles/tmnt
 }
 
 function test_external_deps_in_remote_repo() {
@@ -639,7 +640,8 @@ genrule(
 EOF
 
  bazel build @r//:r || fail "build failed"
- assert_contains "GOLF" bazel-genfiles/external/r/r.out
+ r_genfiles=$(bazel info bazel-genfiles | sed 's|bazel-out|bazel-out/r|')
+ assert_contains "GOLF" $r_genfiles/r.out
 }
 
 function test_local_deps() {
@@ -999,7 +1001,8 @@ local_repository(name='r', path='$r')
 EOF
 
   bazel build @r//a:b || fail "build failed"
-  cat bazel-genfiles/external/r/a/bo > $TEST_log
+  r_genfiles=$(bazel info bazel-genfiles | sed 's|bazel-out|bazel-out/r|')
+  cat $r_genfiles/a/bo > $TEST_log
   expect_log "@r a"
 }
 

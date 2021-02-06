@@ -178,6 +178,21 @@ public final class BlackBoxTestContext {
     return PathUtils.resolve(binPath, subPathUnderBin);
   }
 
+  public Path resolveExternalBinPath(BuilderRunner bazel, String repoName, String subPathUnderBin)
+      throws Exception {
+    Path binPath = PathUtils.resolve(workDir, getInfoValue(bazel, productName + "-bin"));
+    int pathNameCount = binPath.getNameCount();
+    Path basePath = binPath.subpath(0, pathNameCount - 2);
+    if (binPath.isAbsolute()) {
+      basePath = binPath.getRoot().resolve(basePath);
+    }
+    return PathUtils.resolve(
+        basePath,
+        repoName,
+        binPath.subpath(pathNameCount - 2, pathNameCount).toString(),
+        subPathUnderBin);
+  }
+
   /**
    * Resolve a path relative to "execution_root". Useful for checking the contents of the generated
    * external repositories.

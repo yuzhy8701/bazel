@@ -49,7 +49,7 @@ final class WorkerExecRoot {
     // Then do a full traversal of the `workDir`. This will use what we computed above, delete
     // anything unnecessary and update `inputsToCreate`/`dirsToCreate` if something is can be left
     // without changes (e.g., a symlink that already points to the right destination).
-    cleanExisting(workDir, inputs, inputsToCreate, dirsToCreate);
+    cleanExisting(workDir.getParentDirectory(), inputs, inputsToCreate, dirsToCreate);
 
     // Finally, create anything that is still missing.
     createDirectories(dirsToCreate);
@@ -107,7 +107,13 @@ final class WorkerExecRoot {
       throws IOException {
     for (Path path : root.getDirectoryEntries()) {
       FileStatus stat = path.stat(Symlinks.NOFOLLOW);
-      PathFragment pathRelativeToWorkDir = path.relativeTo(workDir);
+      PathFragment pathRelativeToWorkDir = path.relativeTo(workDir.getParentDirectory());
+      if (pathRelativeToWorkDir.getSegment(0).equals(workDir.getBaseName())) {
+        pathRelativeToWorkDir =
+            pathRelativeToWorkDir.relativeTo(PathFragment.create(workDir.getBaseName()));
+      } else {
+        pathRelativeToWorkDir = PathFragment.create("..").getRelative(pathRelativeToWorkDir);
+      }
       Optional<PathFragment> destination =
           getExpectedSymlinkDestination(pathRelativeToWorkDir, inputs);
       if (destination.isPresent()) {
