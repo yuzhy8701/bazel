@@ -100,7 +100,6 @@ if [ "$TEST_LOG" == "-" ]; then
 fi
 
 test_name="${TEST_BINARY#./}"
-test_name="${TEST_BINARY#../}"
 errors=0
 error_msg=""
 if (( $EXIT_CODE != 0 )); then
