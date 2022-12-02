@@ -556,7 +556,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "experimental_output_directory_naming_scheme",
-      defaultValue = "legacy",
+      defaultValue = "diff_against_baseline",
       converter = OutputDirectoryNamingSchemeConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
