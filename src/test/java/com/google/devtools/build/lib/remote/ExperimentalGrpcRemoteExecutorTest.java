@@ -231,7 +231,7 @@ public class ExperimentalGrpcRemoteExecutorTest {
 
   @Test
   public void executeRemotely_executeAndWait() throws Exception {
-    executionService.whenExecute(DUMMY_REQUEST).thenAck().thenError(Code.UNAVAILABLE);
+    executionService.whenExecute(DUMMY_REQUEST).thenAck().finish();
     executionService.whenWaitExecution(DUMMY_REQUEST).thenDone(DUMMY_RESPONSE);
 
     ExecuteResponse response =
@@ -244,7 +244,7 @@ public class ExperimentalGrpcRemoteExecutorTest {
 
   @Test
   public void executeRemotely_executeAndRetryWait() throws Exception {
-    executionService.whenExecute(DUMMY_REQUEST).thenAck().thenError(Code.UNAVAILABLE);
+    executionService.whenExecute(DUMMY_REQUEST).thenAck().finish();
     executionService.whenWaitExecution(DUMMY_REQUEST).thenDone(DUMMY_RESPONSE);
 
     ExecuteResponse response =
@@ -257,10 +257,10 @@ public class ExperimentalGrpcRemoteExecutorTest {
 
   @Test
   public void executeRemotely_executeAndRetryWait_forever() throws Exception {
-    executionService.whenExecute(DUMMY_REQUEST).thenAck().thenError(Code.UNAVAILABLE);
+    executionService.whenExecute(DUMMY_REQUEST).thenAck().finish();
     int errorTimes = MAX_RETRY_ATTEMPTS * 2;
     for (int i = 0; i < errorTimes; ++i) {
-      executionService.whenWaitExecution(DUMMY_REQUEST).thenAck().thenError(Code.DEADLINE_EXCEEDED);
+      executionService.whenWaitExecution(DUMMY_REQUEST).thenAck().thenError(Status.DEADLINE_EXCEEDED.asRuntimeException());
     }
     executionService.whenWaitExecution(DUMMY_REQUEST).thenDone(DUMMY_RESPONSE);
 
@@ -274,9 +274,9 @@ public class ExperimentalGrpcRemoteExecutorTest {
 
   @Test
   public void executeRemotely_executeAndRetryWait_failForConsecutiveErrors() {
-    executionService.whenExecute(DUMMY_REQUEST).thenAck().thenError(Code.UNAVAILABLE);
+    executionService.whenExecute(DUMMY_REQUEST).thenAck().finish();
     for (int i = 0; i < MAX_RETRY_ATTEMPTS * 2; ++i) {
-      executionService.whenWaitExecution(DUMMY_REQUEST).thenError(Code.UNAVAILABLE);
+      executionService.whenWaitExecution(DUMMY_REQUEST).thenError(Status.UNAVAILABLE.asRuntimeException());
     }
 
     assertThrows(
@@ -348,8 +348,8 @@ public class ExperimentalGrpcRemoteExecutorTest {
   @Test
   public void executeRemotely_retryWaitExecutionWhenUnauthenticated()
       throws IOException, InterruptedException {
-    executionService.whenExecute(DUMMY_REQUEST).thenAck().thenError(Code.UNAVAILABLE);
-    executionService.whenWaitExecution(DUMMY_REQUEST).thenAck().thenError(Code.UNAUTHENTICATED);
+    executionService.whenExecute(DUMMY_REQUEST).thenAck().finish();
+    executionService.whenWaitExecution(DUMMY_REQUEST).thenAck().thenError(Status.UNAUTHENTICATED.asRuntimeException());
     executionService.whenWaitExecution(DUMMY_REQUEST).thenAck().thenDone(DUMMY_RESPONSE);
 
     ExecuteResponse response =
@@ -362,9 +362,9 @@ public class ExperimentalGrpcRemoteExecutorTest {
 
   @Test
   public void executeRemotely_retryExecuteIfNotFound() throws IOException, InterruptedException {
-    executionService.whenExecute(DUMMY_REQUEST).thenAck().thenError(Code.UNAVAILABLE);
+    executionService.whenExecute(DUMMY_REQUEST).thenAck().finish();
     executionService.whenWaitExecution(DUMMY_REQUEST).thenError(Code.NOT_FOUND);
-    executionService.whenExecute(DUMMY_REQUEST).thenAck().thenError(Code.UNAVAILABLE);
+    executionService.whenExecute(DUMMY_REQUEST).thenAck().finish();
     executionService.whenWaitExecution(DUMMY_REQUEST).thenDone(DUMMY_RESPONSE);
 
     ExecuteResponse response =
@@ -378,7 +378,7 @@ public class ExperimentalGrpcRemoteExecutorTest {
   @Test
   public void executeRemotely_notFoundLoop_reportError() {
     for (int i = 0; i <= MAX_RETRY_ATTEMPTS * 2; ++i) {
-      executionService.whenExecute(DUMMY_REQUEST).thenAck().thenError(Code.UNAVAILABLE);
+      executionService.whenExecute(DUMMY_REQUEST).thenAck().finish();
       executionService.whenWaitExecution(DUMMY_REQUEST).thenAck().thenError(Code.NOT_FOUND);
     }
 

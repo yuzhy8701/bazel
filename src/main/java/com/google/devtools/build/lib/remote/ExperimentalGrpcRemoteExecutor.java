@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.longrunning.Operation;
 import com.google.longrunning.Operation.ResultCase;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.rpc.Status;
 import io.grpc.Channel;
 import io.grpc.Status.Code;
@@ -94,8 +95,10 @@ public class ExperimentalGrpcRemoteExecutor implements RemoteExecutionClient {
     private final Function<ExecuteRequest, Iterator<Operation>> executeFunction;
     private final Function<WaitExecutionRequest, Iterator<Operation>> waitExecutionFunction;
 
-    // Last response (without error) we received from server.
+    // Last response we received from server.
     private Operation lastOperation;
+    // Last response (without error) we received from server.
+    private Operation lastValidOperation;
 
     Execution(
         ExecuteRequest request,
@@ -133,7 +136,7 @@ public class ExperimentalGrpcRemoteExecutor implements RemoteExecutionClient {
       // - Any call can return an Operation object with an error status in the result. Such
       //   Operations are completed and failed; however, some of these errors may be retriable.
       //   These errors should trigger a retry of the Execute call, resulting in a new Operation.
-      Preconditions.checkState(lastOperation == null);
+      Preconditions.checkState(lastValidOperation == null);
 
       ExecuteResponse response = null;
       // Exit the loop as long as we get a response from either Execute() or WaitExecution().
@@ -155,9 +158,12 @@ public class ExperimentalGrpcRemoteExecutor implements RemoteExecutionClient {
         // The cases to exit the loop:
         //   1. Received the final response.
         //   2. Received a un-retriable gRPC error.
-        //   3. Received NOT_FOUND error where we will retry Execute() (by returning null).
         //   4. Received consecutive retriable gRPC errors (up to max retry times).
-        if (response == null) {
+        //
+        // The cases to retry Execute() (by resetting lastValidOperation and receive a null response)
+        //   1. Received NOT_FOUND error.
+        //   2. Received an error from a complete operation.
+        if (response == null && lastValidOperation != null) {
           response =
               retrier.execute(
                   () ->
@@ -171,17 +177,22 @@ public class ExperimentalGrpcRemoteExecutor implements RemoteExecutionClient {
 
     @Nullable
     ExecuteResponse execute() throws IOException {
-      Preconditions.checkState(lastOperation == null);
+      Preconditions.checkState(lastValidOperation == null);
 
       try {
         Iterator<Operation> operationStream = executeFunction.apply(request);
         return handleOperationStream(operationStream);
       } catch (Throwable e) {
-        // If lastOperation is not null, we know the execution request is accepted by the server. In
+        // If lastValidOperation is not null, we know the execution request is accepted by the server. In
         // this case, we will fallback to WaitExecution() loop when the stream is broken.
-        if (lastOperation != null) {
-          // By returning null, we are going to fallback to WaitExecution() loop.
-          return null;
+        if (lastValidOperation != null) {
+          if (!lastOperation.getDone()) {
+            // By returning null, we are going to fallback to WaitExecution() loop.
+            return null;
+          }
+
+          // all done operations must be reexecuted
+          lastValidOperation = null;
         }
         throw new IOException(e);
       }
@@ -189,10 +200,10 @@ public class ExperimentalGrpcRemoteExecutor implements RemoteExecutionClient {
 
     @Nullable
     ExecuteResponse waitExecution() throws IOException {
-      Preconditions.checkState(lastOperation != null);
+      Preconditions.checkState(lastValidOperation != null);
 
       WaitExecutionRequest request =
-          WaitExecutionRequest.newBuilder().setName(lastOperation.getName()).build();
+          WaitExecutionRequest.newBuilder().setName(lastValidOperation.getName()).build();
       try {
         Iterator<Operation> operationStream = waitExecutionFunction.apply(request);
         return handleOperationStream(operationStream);
@@ -205,9 +216,17 @@ public class ExperimentalGrpcRemoteExecutor implements RemoteExecutionClient {
           StatusRuntimeException sre = (StatusRuntimeException) e;
           if (sre.getStatus().getCode() == Code.NOT_FOUND
               && executeBackoff.nextDelayMillis(sre) >= 0) {
-            lastOperation = null;
+            lastValidOperation = null;
             return null;
           }
+        }
+
+        // all completed operations must be reexecuted
+        if (lastOperation.getDone()
+            && e instanceof Exception
+            && executeBackoff.nextDelayMillis((Exception) e) >= 0) {
+          lastValidOperation = null;
+          return null;
         }
         throw new IOException(e);
       }
@@ -218,10 +237,14 @@ public class ExperimentalGrpcRemoteExecutor implements RemoteExecutionClient {
       try {
         while (operationStream.hasNext()) {
           Operation operation = operationStream.next();
+
+          // We've received any response, it may indicate completion, requiring reexecution
+          lastOperation = operation;
+
           ExecuteResponse response = extractResponseOrThrowIfError(operation);
 
           // At this point, we successfully received a response that is not an error.
-          lastOperation = operation;
+          lastValidOperation = lastOperation;
 
           // We don't want to reset executeBackoff since if there is an error:
           //   1. If happened before we received a first response, we want to ensure the retry
