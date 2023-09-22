@@ -384,7 +384,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
   }
 
   @Override
-  protected boolean isConfigure(Rule rule) {
+  public boolean isConfigure(Rule rule) {
     return (Boolean) rule.getAttr("$configure");
   }
 
