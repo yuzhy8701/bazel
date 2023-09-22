@@ -398,7 +398,7 @@ public abstract class RepositoryFunction {
   protected abstract boolean isLocal(Rule rule);
 
   /** Wheather the rule declares it inspects the local environment for configure purpose. */
-  protected boolean isConfigure(Rule rule) {
+  public boolean isConfigure(Rule rule) {
     return false;
   }
 

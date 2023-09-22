@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelFetchAllFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelFetchAllValue;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -46,6 +47,7 @@ import com.google.devtools.build.lib.runtime.commands.QueryCommand;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.FetchCommand.Code;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -100,8 +102,9 @@ public final class FetchCommand implements BlazeCommand {
                 /* showProgress= */ true,
                 /* id= */ null));
     BlazeCommandResult result;
-    if (fetchOptions.all) {
-      result = fetchAll(env, options, threadsOption);
+    //TODO(salmasamy) don't allow multiple options together
+    if (fetchOptions.all || fetchOptions.configure) {
+      return fetchAll(env, options, fetchOptions.configure, threadsOption);
     } else {
       result = fetchTarget(env, options, threadsOption);
     }
@@ -112,10 +115,8 @@ public final class FetchCommand implements BlazeCommand {
     return result;
   }
 
-  private BlazeCommandResult fetchAll(
-      CommandEnvironment env,
-      OptionsParsingResult options,
-      LoadingPhaseThreadsOption threadsOption) {
+  private BlazeCommandResult fetchAll(CommandEnvironment env, OptionsParsingResult options,
+      boolean configureEnabled, LoadingPhaseThreadsOption threadsOption) {
     if (!options.getOptions(BuildLanguageOptions.class).enableBzlmod) {
       String errorMessage =
           "Bzlmod has to be enabled for fetch --all to work, run with --enable_bzlmod";
@@ -130,6 +131,12 @@ public final class FetchCommand implements BlazeCommand {
             .setParallelism(threadsOption.threads)
             .setEventHandler(env.getReporter())
             .build();
+    if (configureEnabled) {
+      skyframeExecutor.injectExtraPrecomputedValues(
+          ImmutableList.of(
+              PrecomputedValue.injected(BazelFetchAllFunction.FETCH_CONFIGUR_ENABLED,
+                  true)));
+    }
 
     try {
       env.syncPackageLoading(options);
@@ -156,10 +163,8 @@ public final class FetchCommand implements BlazeCommand {
           InterruptedFailureDetails.detailedExitCode(errorMessage));
     }
   }
-
-  private BlazeCommandResult fetchTarget(
-      CommandEnvironment env,
-      OptionsParsingResult options,
+  
+  private BlazeCommandResult fetchTarget(CommandEnvironment env, OptionsParsingResult options,
       LoadingPhaseThreadsOption threadsOption) {
     if (options.getResidue().isEmpty()) {
       String errorMessage =
