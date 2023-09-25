@@ -17,12 +17,10 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -30,9 +28,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -41,19 +37,6 @@ import javax.annotation.Nullable;
  * result (empty value is returned).
  */
 public class BazelFetchAllFunction implements SkyFunction {
-
-  private final RepositoryFunction starlarkHandler;
-  private final ImmutableMap<String, RepositoryFunction> handlers;
-  private final Supplier<Map<String, String>> clientEnvironmentSupplier;
-
-  public BazelFetchAllFunction(
-      ImmutableMap<String, RepositoryFunction> handlers,
-      @Nullable RepositoryFunction starlarkHandler,
-      Supplier<Map<String, String>> clientEnvironmentSupplier) {
-    this.handlers = handlers;
-    this.starlarkHandler = starlarkHandler;
-    this.clientEnvironmentSupplier = clientEnvironmentSupplier;
-  }
 
   public static final Precomputed<Boolean> FETCH_CONFIGUR_ENABLED =
       new Precomputed<>("fetch_configur_enabled");
@@ -104,8 +87,7 @@ public class BazelFetchAllFunction implements SkyFunction {
         if (repoRuleValue == null) {
           return null;
         }
-        RepositoryFunction handler = getHandler(repoRuleValue.getRule());
-        if (handler.isConfigure(repoRuleValue.getRule())) {
+        if (StarlarkRepositoryFunction.isConfigureRule(repoRuleValue.getRule())) {
           reposToFetch.add(RepositoryName.createUnvalidated(repoRuleValue.getRule().getName()));
         }
       }
@@ -128,17 +110,4 @@ public class BazelFetchAllFunction implements SkyFunction {
     return BazelFetchAllValue.create();
   }
 
-  //TODO(Salmasamy) repeated code, is there a better way?
-  private RepositoryFunction getHandler(Rule rule) {
-    RepositoryFunction handler;
-    if (rule.getRuleClassObject().isStarlark()) {
-      handler = starlarkHandler;
-    } else {
-      handler = handlers.get(rule.getRuleClass());
-    }
-    if (handler != null) {
-      handler.setClientEnvironment(clientEnvironmentSupplier.get());
-    }
-    return handler;
-  }
 }
