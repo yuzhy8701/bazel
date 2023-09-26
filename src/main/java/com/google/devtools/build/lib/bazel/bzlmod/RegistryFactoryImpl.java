@@ -37,7 +37,13 @@ public class RegistryFactoryImpl implements RegistryFactory {
 
   @Override
   public Registry getRegistryWithUrl(String url) throws URISyntaxException {
-    URI uri = new URI(url);
+    return getRegistryWithUrl(url, "");
+  }
+
+  @Override
+  public Registry getRegistryWithUrl(String url, String workspacePath) throws URISyntaxException {
+    String originalUrl = url;
+    URI uri = new URI(url.replace("%workspace%", workspacePath));
     if (uri.getScheme() == null) {
       throw new URISyntaxException(
           uri.toString(), "Registry URL has no scheme -- did you mean to use file://?");
@@ -48,7 +54,7 @@ public class RegistryFactoryImpl implements RegistryFactory {
       case "file":
         return registries.get(
             url,
-            unused -> new IndexRegistry(uri, downloadManager, clientEnvironmentSupplier.get()));
+            unused -> new IndexRegistry(uri, originalUrl, downloadManager, clientEnvironmentSupplier.get()));
       default:
         throw new URISyntaxException(uri.toString(), "Unrecognized registry URL protocol");
     }

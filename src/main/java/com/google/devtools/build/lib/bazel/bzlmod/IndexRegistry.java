@@ -49,14 +49,17 @@ import java.util.Optional;
  * <p>For details, see <a href="https://bazel.build/external/registry">the docs</a>
  */
 public class IndexRegistry implements Registry {
+
+  private String unresolvedUri;
   private final URI uri;
   private final DownloadManager downloadManager;
   private final Map<String, String> clientEnv;
   private final Gson gson;
   private volatile Optional<BazelRegistryJson> bazelRegistryJson;
 
-  public IndexRegistry(URI uri, DownloadManager downloadManager, Map<String, String> clientEnv) {
+  public IndexRegistry(URI uri, String unresolvedUri, DownloadManager downloadManager, Map<String, String> clientEnv) {
     this.uri = uri;
+    this.unresolvedUri = unresolvedUri;
     this.downloadManager = downloadManager;
     this.clientEnv = clientEnv;
     this.gson =
@@ -68,6 +71,11 @@ public class IndexRegistry implements Registry {
   @Override
   public String getUrl() {
     return uri.toString();
+  }
+
+  @Override
+  public String getUnresolvedUrl() {
+    return unresolvedUri;
   }
 
   private String constructUrl(String base, String... segments) {
@@ -259,7 +267,7 @@ public class IndexRegistry implements Registry {
       for (Map.Entry<String, String> entry : sourceJson.get().patches.entrySet()) {
         remotePatches.put(
             constructUrl(
-                getUrl(),
+                getUnresolvedUrl(),
                 "modules",
                 key.getName(),
                 key.getVersion().toString(),

@@ -148,7 +148,7 @@ public abstract class AnalysisMock extends LoadingMock {
         SkyFunctions.BAZEL_MODULE_RESOLUTION,
         new BazelModuleResolutionFunction(),
         SkyFunctions.REPO_SPEC,
-        new RepoSpecFunction(FakeRegistry.DEFAULT_FACTORY),
+        new RepoSpecFunction(FakeRegistry.DEFAULT_FACTORY, directories.getWorkspace()),
         SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE,
         new ClientEnvironmentFunction(new AtomicReference<>(ImmutableMap.of())));
   }

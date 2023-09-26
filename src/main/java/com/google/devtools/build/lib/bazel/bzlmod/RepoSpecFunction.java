@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -32,10 +33,12 @@ import javax.annotation.Nullable;
  * fetching required information from its {@link Registry}.
  */
 public class RepoSpecFunction implements SkyFunction {
+  private final Path workspace;
   private final RegistryFactory registryFactory;
 
-  public RepoSpecFunction(RegistryFactory registryFactory) {
+  public RepoSpecFunction(RegistryFactory registryFactory, Path workspace) {
     this.registryFactory = registryFactory;
+    this.workspace = workspace;
   }
 
   @Override
@@ -47,7 +50,7 @@ public class RepoSpecFunction implements SkyFunction {
         Profiler.instance()
             .profile(ProfilerTask.BZLMOD, () -> "compute repo spec: " + key.getModuleKey())) {
       return registryFactory
-          .getRegistryWithUrl(key.getRegistryUrl())
+          .getRegistryWithUrl(key.getUnresolvedRegistryUrl(), workspace.getPathString())
           .getRepoSpec(
               key.getModuleKey(), key.getModuleKey().getCanonicalRepoName(), env.getListener());
     } catch (IOException e) {

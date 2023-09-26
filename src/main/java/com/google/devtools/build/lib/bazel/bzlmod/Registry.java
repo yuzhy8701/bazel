@@ -27,6 +27,9 @@ public interface Registry {
   /** The URL that uniquely identifies the registry. */
   String getUrl();
 
+  /** The unresolved version of the url. Ex: with %workspace% placeholder */
+  String getUnresolvedUrl();
+
   /**
    * Retrieves the contents of the module file of the module identified by {@code key} from the
    * registry. Returns {@code Optional.empty()} when the module is not found in this registry.

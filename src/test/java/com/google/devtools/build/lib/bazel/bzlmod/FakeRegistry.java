@@ -63,6 +63,11 @@ public class FakeRegistry implements Registry {
   }
 
   @Override
+  public String getUnresolvedUrl() {
+    return url;
+  }
+
+  @Override
   public Optional<ModuleFile> getModuleFile(ModuleKey key, ExtendedEventHandler eventHandler) {
     return Optional.ofNullable(modules.get(key))
         .map(value -> value.getBytes(UTF_8))
@@ -121,6 +126,11 @@ public class FakeRegistry implements Registry {
 
     @Override
     public Registry getRegistryWithUrl(String url) {
+      return Preconditions.checkNotNull(registries.get(url), "unknown registry url: %s", url);
+    }
+
+    @Override
+    public Registry getRegistryWithUrl(String url, String workspacePath) {
       return Preconditions.checkNotNull(registries.get(url), "unknown registry url: %s", url);
     }
   }

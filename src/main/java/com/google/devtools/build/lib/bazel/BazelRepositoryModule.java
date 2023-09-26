@@ -282,7 +282,7 @@ public class BazelRepositoryModule extends BlazeModule {
         .addSkyFunction(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
         .addSkyFunction(SkyFunctions.SINGLE_EXTENSION_EVAL, singleExtensionEvalFunction)
         .addSkyFunction(SkyFunctions.SINGLE_EXTENSION_USAGES, new SingleExtensionUsagesFunction())
-        .addSkyFunction(SkyFunctions.REPO_SPEC, new RepoSpecFunction(registryFactory));
+        .addSkyFunction(SkyFunctions.REPO_SPEC, new RepoSpecFunction(registryFactory, directories.getWorkspace()));
     filesystem = runtime.getFileSystem();
 
     credentialModule = Preconditions.checkNotNull(runtime.getBlazeModule(CredentialModule.class));

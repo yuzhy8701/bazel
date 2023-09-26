@@ -22,4 +22,7 @@ public interface RegistryFactory {
 
   /** Returns the unique registry associated with the given URL. */
   Registry getRegistryWithUrl(String url) throws URISyntaxException;
+
+  /** Returns the unique registry associated with the given URL after resolving it. */
+  Registry getRegistryWithUrl(String url, String workspacePath) throws URISyntaxException;
 }

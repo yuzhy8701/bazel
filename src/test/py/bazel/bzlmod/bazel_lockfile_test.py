@@ -1115,5 +1115,37 @@ class BazelLockfileTest(test_base.TestBase):
       self.assertEqual(len(extension_map), 1)
 
 
+  def testLockfileWithNoUserSpecificPath(self):
+    self.my_registry = BazelRegistry(
+      os.path.join(self._test_cwd, 'registry')
+    )
+    patch_file = self.ScratchFile('ss.patch', [
+      '--- a/aaa.cc',
+      '+++ b/aaa.cc',
+      '@@ -1,6 +1,6 @@',
+      ' #include <stdio.h>',
+      ' #include "aaa.h"',
+      ' void hello_aaa(const std::string& caller) {',
+      '-    std::string lib_name = "aaa@1.1-1";',
+      '+    std::string lib_name = "aaa@1.1-1 (remotely patched)";',
+      '     printf("%s => %s\\n", caller.c_str(), lib_name.c_str());',
+      ' }',
+    ])
+    self.my_registry.createCcModule(
+    'ss', '1.3-1', patches=[patch_file], patch_strip=1)
+
+    self.ScratchFile('MODULE.bazel',  [
+      'bazel_dep(name = "ss", version = "1.3-1")',
+    ])
+    self.ScratchFile('BUILD.bazel', ['filegroup(name = "lala")'])
+    self.RunBazel(['build', '--registry=file://%workspace%/registry', '//:lala'])
+
+    with open('MODULE.bazel.lock', 'r') as json_file:
+      lockfile = json.load(json_file)
+    remote_patches = lockfile["moduleDepGraph"]["ss@1.3-1"]["repoSpec"]["attributes"]["remote_patches"]
+    for key in remote_patches.keys():
+      self.assertIn("%workspace%", key)
+
+
 if __name__ == '__main__':
   absltest.main()

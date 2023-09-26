@@ -15,10 +15,13 @@
 package com.google.devtools.build.lib.skyframe;
 
 
+import static autovalue.shaded.com.google$.auto.common.$MoreStreams.toImmutableMap;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.bazel.bzlmod.AttributeValues;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleCreator;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
@@ -38,6 +41,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.RuleFunction;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
@@ -47,9 +51,11 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -198,7 +204,7 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
               env.getListener(),
               "BzlmodRepoRuleFunction.createRule",
               ruleClass,
-              repoSpec.attributes().attributes());
+              adjustAttributes(repoSpec).attributes());
       return new BzlmodRepoRuleValue(rule.getPackage(), rule.getName());
     } catch (InvalidRuleException e) {
       throw new BzlmodRepoRuleFunctionException(e, Transience.PERSISTENT);
@@ -207,6 +213,27 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
     } catch (EvalException e) {
       throw new BzlmodRepoRuleFunctionException(e, Transience.PERSISTENT);
     }
+  }
+
+  private AttributeValues adjustAttributes(RepoSpec repoSpec) {
+    if (repoSpec.getRuleClass().equals("@bazel_tools//tools/build_defs/repo:http.bzl%http_archive"))
+    {
+     return AttributeValues.create(repoSpec.attributes().attributes().entrySet().stream()
+          .collect(toImmutableMap(
+              Map.Entry::getKey,
+              e -> {
+                if (e.getKey().equals("remote_patches")) {
+                  Map<String, String> remotePatches = (Map<String, String>) e.getValue();
+                  return remotePatches.keySet().stream()
+                      .collect(toImmutableMap(
+                      key -> key.replace("%workspace%", directories.getWorkspace().getPathString()),
+                      key -> remotePatches.get(key)));
+                }
+                return e.getValue();
+              }
+          )));
+    }
+    return repoSpec.attributes();
   }
 
   /** Loads modules from the given bzl file. */

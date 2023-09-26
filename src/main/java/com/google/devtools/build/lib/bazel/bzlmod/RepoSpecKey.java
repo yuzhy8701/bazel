@@ -31,16 +31,16 @@ abstract class RepoSpecKey implements SkyKey {
   static RepoSpecKey of(InterimModule module) {
     Preconditions.checkNotNull(
         module.getRegistry(), "module must not have a non-registry override");
-    return create(module.getKey(), module.getRegistry().getUrl());
+    return create(module.getKey(), module.getRegistry().getUnresolvedUrl());
   }
 
   abstract ModuleKey getModuleKey();
 
-  abstract String getRegistryUrl();
+  abstract String getUnresolvedRegistryUrl();
 
   @AutoCodec.Instantiator
-  static RepoSpecKey create(ModuleKey moduleKey, String registryUrl) {
-    return interner.intern(new AutoValue_RepoSpecKey(moduleKey, registryUrl));
+  static RepoSpecKey create(ModuleKey moduleKey, String unresolvedRegistryUrl) {
+    return interner.intern(new AutoValue_RepoSpecKey(moduleKey, unresolvedRegistryUrl));
   }
 
   @Override
