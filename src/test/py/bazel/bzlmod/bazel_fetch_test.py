@@ -150,6 +150,17 @@ class BazelFetchTest(test_base.TestBase):
     self.assertNotIn('_main~ext~notConfig', repos_fetched)
     self.assertIn('_main~ext~IamConfig', repos_fetched)
 
+  def testFetchFailsWithMultipleOptions(self):
+    exit_code, _, stderr = self.RunBazel(
+      ['fetch', '--all','--configure'], allow_failure=True)
+    self.AssertExitCode(exit_code, 2, stderr)
+    self.assertIn(
+      (
+        'ERROR: Only one fetch option should be provided for fetch command.'
+      ),
+      stderr,
+    )
+
 
 if __name__ == '__main__':
   absltest.main()

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.commands;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.primitives.Booleans;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelFetchAllFunction;
@@ -89,8 +90,16 @@ public final class FetchCommand implements BlazeCommand {
       env.getReporter().handle(Event.error(null, errorMessage));
       return createFailedBlazeCommandResult(Code.OPTIONS_INVALID, errorMessage);
     }
-
     FetchOptions fetchOptions = options.getOptions(FetchOptions.class);
+    // Validate only one option is provided for fetch
+    boolean moreThanOneOption =
+        Booleans.countTrue(fetchOptions.all, fetchOptions.configure, !options.getResidue().isEmpty())
+            > 1;
+    if (moreThanOneOption) {
+      String errorMessage = "Only one fetch option should be provided for fetch command.";
+      env.getReporter().handle(Event.error(null, errorMessage));
+      return createFailedBlazeCommandResult(Code.OPTIONS_INVALID, errorMessage);
+    }
     LoadingPhaseThreadsOption threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
 
     env.getEventBus()
