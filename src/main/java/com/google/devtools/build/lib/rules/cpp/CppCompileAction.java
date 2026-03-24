@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
+import static java.util.Comparator.comparing;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
@@ -88,6 +90,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ShellEscaper;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -103,13 +106,17 @@ import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -972,7 +979,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
               "failed to generate compile environment variables for rule '%s: %s",
               getOwner().getLabel(), e.getMessage());
       DetailedExitCode code = createDetailedExitCode(message, Code.COMMAND_GENERATION_FAILURE);
-      throw new ActionExecutionException(message, this, /*catastrophe=*/ false, code);
+      throw new ActionExecutionException(message, this, /* catastrophe= */ false, code);
     }
   }
 
@@ -1061,7 +1068,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
     // TODO(ulfjack): Extra actions currently ignore the client environment.
     for (Map.Entry<String, String> envVariable :
-        getEffectiveEnvironment(/*clientEnv=*/ ImmutableMap.of()).entrySet()) {
+        getEffectiveEnvironment(/* clientEnv= */ ImmutableMap.of()).entrySet()) {
       info.addVariable(
           EnvironmentVariable.newBuilder()
               .setName(envVariable.getKey())
@@ -1088,17 +1095,13 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     return mergeMaps(super.getExecutionInfo(), executionInfo);
   }
 
-  private static boolean validateInclude(
-      Set<Artifact> allowedIncludes, Iterable<PathFragment> ignoreDirs, Artifact include) {
+  private static boolean shouldIgnoreInput(Iterable<PathFragment> ignoreDirs, Artifact include) {
     // Only declared modules are added to an action and so they are always valid.
     return include.isFileType(CppFileTypes.CPP_MODULE)
         ||
         // TODO(b/145253507): Exclude objc module maps from check, due to bad interaction with
         // local_objc_modules feature.
         include.isFileType(CppFileTypes.OBJC_MODULE_MAP)
-        ||
-        // It's a declared include/
-        allowedIncludes.contains(include)
         ||
         // Ignore headers from built-in include directories.
         FileSystemUtils.startsWithAny(include.getExecPath(), ignoreDirs);
@@ -1122,30 +1125,55 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    *
    * @throws ActionExecutionException iff there was an undeclared dependency
    */
-  @VisibleForTesting
-  public void validateInclusions(
-      ActionExecutionContext actionExecutionContext, NestedSet<Artifact> inputsForValidation)
+  private void validateInclusions(NestedSet<Artifact> inputsForValidation, boolean ignoreCase)
       throws ActionExecutionException {
     if (!needsIncludeValidation) {
       return;
     }
-    IncludeProblems errors = new IncludeProblems();
-    Set<Artifact> allowedIncludes = new HashSet<>();
-    allowedIncludes.addAll(mandatoryInputs.toList());
-    allowedIncludes.addAll(ccCompilationContext.getDeclaredIncludeSrcs().toList());
-    allowedIncludes.addAll(additionalPrunableHeaders.toList());
 
     Iterable<PathFragment> ignoreDirs =
         cppConfiguration().isStrictSystemIncludes()
             ? getBuiltInIncludeDirectories()
             : getValidationIgnoredDirs();
+    Supplier<Map<PathFragment, Artifact>> mapFactory =
+        ignoreCase
+            ? () ->
+                new TreeMap<>(
+                    comparing(
+                        pathFragment ->
+                            StringEncoding.internalToUnicode(pathFragment.getPathString()),
+                        String.CASE_INSENSITIVE_ORDER))
+            : HashMap::new;
+    var unvalidated =
+        inputsForValidation.toList().stream()
+            .filter(input -> !shouldIgnoreInput(ignoreDirs, input))
+            .collect(
+                Collectors.toMap(
+                    Artifact::getExecPath, Function.identity(), (a, b) -> a, mapFactory));
 
-    // Copy the nested sets to hash sets for fast contains checking, but do so lazily.
-    // Avoid immutable sets here to limit memory churn.
-    for (Artifact input : inputsForValidation.toList()) {
-      if (!validateInclude(allowedIncludes, ignoreDirs, input)) {
-        errors.add(input.getExecPath().toString());
+    var allowedIncludes =
+        Iterables.concat(
+            mandatoryInputs.toList(),
+            ccCompilationContext.getDeclaredIncludeSrcs().toList(),
+            additionalPrunableHeaders.toList());
+    for (Artifact allowedInclude : allowedIncludes) {
+      var input = unvalidated.get(allowedInclude.getExecPath());
+      if (input == null) {
+        continue;
       }
+      if (!allowedInclude.getRoot().equals(input.getRoot())) {
+        continue;
+      }
+      if (!allowedInclude.isSourceArtifact()
+          && !allowedInclude.getOwner().equals(input.getOwner())) {
+        continue;
+      }
+      unvalidated.remove(allowedInclude.getExecPath());
+    }
+
+    var errors = new IncludeProblems();
+    for (var path : unvalidated.keySet()) {
+      errors.add(path.toString());
     }
     errors.assertProblemFree(
         "undeclared inclusion(s) in rule '"
@@ -1203,7 +1231,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
                 includePath);
         DetailedExitCode code =
             createDetailedExitCode(message, Code.INCLUDE_PATH_OUTSIDE_EXEC_ROOT);
-        throw new ActionExecutionException(message, this, /*catastrophe=*/ false, code);
+        throw new ActionExecutionException(message, this, /* catastrophe= */ false, code);
       }
     }
   }
@@ -1542,6 +1570,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
             .getOptions()
             .getOptions(BuildLanguageOptions.class)
             .experimentalSiblingRepositoryLayout;
+    boolean possiblyCaseInsensitiveFileSystem =
+        getOsFromConstraintsOrHost(getExecutionPlatform()) == OS.WINDOWS;
 
     if (shouldParseShowIncludes()) {
       NestedSet<Artifact> discoveredInputs =
@@ -1553,7 +1583,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
               siblingRepositoryLayout,
               pathMapper);
       updateActionInputs(discoveredInputs);
-      validateInclusions(actionExecutionContext, discoveredInputs);
+      validateInclusions(discoveredInputs, possiblyCaseInsensitiveFileSystem);
       return ActionResult.create(spawnResults);
     }
 
@@ -1585,7 +1615,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     // hdrs_check: This cannot be switched off for C++ build actions,
     // because doing so would allow for incorrect builds.
     // HeadersCheckingMode.NONE should only be used for ObjC build actions.
-    validateInclusions(actionExecutionContext, discoveredInputs);
+    validateInclusions(discoveredInputs, possiblyCaseInsensitiveFileSystem);
     return ActionResult.create(spawnResults);
   }
 
