@@ -608,13 +608,8 @@ public class ArtifactFactory implements ArtifactResolver {
         return result;
       }
     }
-    Root sourceRoot =
-        findSourceRoot(execPath, /* baseExecPath= */ null, /* baseRoot= */ null, repositoryName);
-    SourceArtifact newArtifact = createArtifactIfNotValid(sourceRoot, execPath);
-    if (newArtifact == null) {
-      return ImmutableList.of();
-    }
-    return ImmutableList.of(newArtifact);
+    // Don't create artifacts that aren't in the cache - we don't know the exact case yet
+    return ImmutableList.of();
   }
 
   @Nullable

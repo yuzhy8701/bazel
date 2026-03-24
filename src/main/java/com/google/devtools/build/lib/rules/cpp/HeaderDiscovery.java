@@ -14,11 +14,11 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
+import static java.util.Comparator.comparing;
 
-import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -27,19 +27,22 @@ import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.TreeMap;
 import javax.annotation.Nullable;
 
 /**
@@ -126,8 +129,6 @@ final class HeaderDiscovery {
       boolean siblingRepositoryLayout,
       PathMapper pathMapper)
       throws ActionExecutionException {
-    NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
-
     // This is a very special case: in certain corner cases (notably, protobuf), the WORKSPACE file
     // contains a local_repository that has the same name and path as the main repository. In this
     // case, if sibling repository layout is active, files in that local repository have the same
@@ -157,7 +158,16 @@ final class HeaderDiscovery {
     IncludeProblems unresolvablePathProblems = new IncludeProblems();
     boolean possiblyCaseInsensitiveFileSystem =
         getOsFromConstraintsOrHost(action.getExecutionPlatform()) == OS.WINDOWS;
-    CompactHashSet<Artifact> sourceArtifactInputs = null;
+    // Keeps unresolved dependencies with their possible artifact candidates.
+    Map<PathFragment, List<Artifact>> candidates =
+        possiblyCaseInsensitiveFileSystem
+            ? new TreeMap<>(
+                comparing(
+                    pathFragment -> StringEncoding.internalToUnicode(pathFragment.getPathString()),
+                    String.CASE_INSENSITIVE_ORDER))
+            : new HashMap<>();
+
+    // Process dependencies and initialize resolve state.
     for (Path execPath : dependencies) {
       PathFragment execPathFragment = execPath.asFragment();
       if (execPathFragment.isAbsolute()) {
@@ -191,74 +201,118 @@ final class HeaderDiscovery {
           continue;
         }
       }
-      Collection<? extends Artifact> resolvedArtifacts = ImmutableList.of();
-      Artifact derivedArtifact = regularDerivedArtifacts.get(execPathFragment);
-      if (derivedArtifact == null) {
+      candidates.putIfAbsent(execPathFragment, ImmutableList.of());
+    }
+
+    Set<Artifact> resolvedArtifacts = new HashSet<>(candidates.size());
+
+    if (!candidates.isEmpty()) {
+      var iterCandidates = candidates.entrySet().iterator();
+      while (iterCandidates.hasNext()) {
+        var entry = iterCandidates.next();
+        PathFragment execPathFragment = entry.getKey();
+
+        // Try to resolve from regular derived artifacts first.
+        Artifact derivedArtifact = regularDerivedArtifacts.get(execPathFragment);
+        if (derivedArtifact != null) {
+          resolvedArtifacts.add(derivedArtifact);
+          iterCandidates.remove();
+          continue;
+        }
+        // Try to resolve from source artifact cache.
         Optional<PackageIdentifier> pkgId =
             PackageIdentifier.discoverFromExecPath(
                 execPathFragment, false, siblingRepositoryLayout);
         if (pkgId.isPresent()) {
           if (possiblyCaseInsensitiveFileSystem) {
-            resolvedArtifacts =
-                artifactResolver.resolveSourceArtifactsAsciiCaseInsensitively(
-                    execPathFragment, pkgId.get().getRepository());
+            entry.setValue(
+                artifactResolver
+                    .resolveSourceArtifactsAsciiCaseInsensitively(
+                        execPathFragment, pkgId.get().getRepository())
+                    .stream()
+                    .map(s -> (Artifact) s)
+                    .collect(toImmutableList()));
+            // Since we don't know the exact case of the file, we need to keep the candidate in the
+            // map in case we encounter a different casing later.
           } else {
             var sourceArtifact =
                 artifactResolver.resolveSourceArtifact(
                     execPathFragment, pkgId.get().getRepository());
             if (sourceArtifact != null) {
-              resolvedArtifacts = ImmutableList.of(sourceArtifact);
+              resolvedArtifacts.add(sourceArtifact);
+              iterCandidates.remove();
             }
           }
         }
-      } else {
-        resolvedArtifacts = ImmutableList.of(derivedArtifact);
-      }
-      if (!resolvedArtifacts.isEmpty()) {
-        // We don't need to add the sourceFile itself as it is a mandatory input.
-        resolvedArtifacts = Collections2.filter(resolvedArtifacts, a -> !a.equals(sourceFile));
-        switch (resolvedArtifacts.size()) {
-          case 0 -> {}
-          case 1 -> inputs.add(Iterables.getOnlyElement(resolvedArtifacts));
-          default -> {
-            if (sourceArtifactInputs == null) {
-              sourceArtifactInputs = CompactHashSet.create();
-              for (Artifact input : action.getInputs().toList()) {
-                if (input.isSourceArtifact()) {
-                  sourceArtifactInputs.add(input);
-                }
-              }
-            }
-            if (Collections.disjoint(resolvedArtifacts, sourceArtifactInputs)) {
-              inputs.addAll(resolvedArtifacts);
-            } else {
-              for (Artifact resolvedArtifact : resolvedArtifacts) {
-                if (sourceArtifactInputs.contains(resolvedArtifact)) {
-                  inputs.add(resolvedArtifact);
-                }
-              }
-            }
-          }
-        }
-        continue;
-      } else if (execPathFragment.getFileExtension().equals("cppmap")) {
-        // Transitive cppmap files are added to the dotd files of compiles even
-        // though they are not required for compilation. Since they're not
-        // explicit inputs to the action this only happens when sandboxing is
-        // disabled.
-        continue;
-      }
-
-      SpecialArtifact treeArtifact =
-          findOwningTreeArtifact(execPathFragment, treeArtifacts, pathMapper);
-      if (treeArtifact != null) {
-        inputs.add(treeArtifact);
-      } else {
-        // Record a problem if we see files that we can't resolve, likely caused by undeclared
-        // includes or illegal include constructs.
-        unresolvablePathProblems.add(execPathFragment.getPathString());
       }
     }
+
+    if (!candidates.isEmpty()) {
+      // Try to resolve from action inputs.
+      for (var artifact : action.getInputs().toList()) {
+        if (!artifact.isSourceArtifact()) {
+          continue;
+        }
+        var existingCandidates = candidates.get(artifact.getExecPath());
+        if (existingCandidates == null) {
+          continue;
+        }
+        var sourceArtifact =
+            artifactResolver.getSourceArtifact(
+                artifact.getExecPath(), artifact.getRoot().getRoot(), artifact.getArtifactOwner());
+        resolvedArtifacts.add(sourceArtifact);
+        if (existingCandidates instanceof ImmutableList) {
+          candidates.put(sourceArtifact.getExecPath(), new ArrayList<>(existingCandidates));
+        }
+        candidates.get(sourceArtifact.getExecPath()).add(sourceArtifact);
+      }
+      // If a path has multiple candidates, only add them all to the inputs if none of them have
+      // been resolved yet.
+      var iterCandidates = candidates.entrySet().iterator();
+      while (iterCandidates.hasNext()) {
+        var artifacts = iterCandidates.next().getValue();
+        if (artifacts.isEmpty()) {
+          continue;
+        }
+        boolean resolved = false;
+        for (var artifact : artifacts) {
+          if (resolvedArtifacts.contains(artifact)) {
+            resolved = true;
+            break;
+          }
+        }
+        if (!resolved) {
+          resolvedArtifacts.addAll(artifacts);
+        }
+        iterCandidates.remove();
+      }
+    }
+
+    if (!candidates.isEmpty()) {
+      var iterCandidates = candidates.entrySet().iterator();
+      while (iterCandidates.hasNext()) {
+        var execPathFragment = iterCandidates.next().getKey();
+        if (execPathFragment.getFileExtension().equals("cppmap")) {
+          // Transitive cppmap files are added to the dotd files of compiles even
+          // though they are not required for compilation. Since they're not
+          // explicit inputs to the action this only happens when sandboxing is
+          // disabled.
+          iterCandidates.remove();
+          continue;
+        }
+        SpecialArtifact treeArtifact =
+            findOwningTreeArtifact(execPathFragment, treeArtifacts, pathMapper);
+        if (treeArtifact != null) {
+          resolvedArtifacts.add(treeArtifact);
+          iterCandidates.remove();
+        }
+      }
+    }
+
+    // Record a problem if we see files that we can't resolve, likely caused by undeclared
+    // includes or illegal include constructs.
+    candidates.keySet().forEach(fragment -> unresolvablePathProblems.add(fragment.getPathString()));
+
     if (shouldValidateInclusions) {
       absolutePathProblems.assertProblemFree(
           "absolute path inclusion(s) found in rule '"
@@ -279,7 +333,13 @@ final class HeaderDiscovery {
               + "':",
           action);
     }
-    return inputs.build();
+
+    return NestedSetBuilder.<Artifact>stableOrder()
+        .addAll(
+            resolvedArtifacts.stream()
+                .filter(a -> !a.equals(sourceFile))
+                .collect(toImmutableList()))
+        .build();
   }
 
   @Nullable
